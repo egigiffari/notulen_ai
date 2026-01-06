@@ -17,20 +17,19 @@ export default defineEventHandler(async (event) => {
         throw createError({ statusCode: 400, statusMessage: 'Session is closed. Cannot re-generate summary.' })
     }
 
-    // Call LLM Service
+    // Call LLM Service (now returns markdown string)
     const content = await generateSummary(meeting.transcript, mode)
-    const contentString = JSON.stringify(content)
 
     const summary = await prisma.summary.upsert({
         where: { meetingId: id },
         update: {
             mode,
-            content: contentString
+            content: content
         },
         create: {
             meetingId: id,
             mode,
-            content: contentString
+            content: content
         }
     })
 

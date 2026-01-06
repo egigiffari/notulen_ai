@@ -43,24 +43,27 @@
           @click="generateSummary(m.value)"
           class="mode-btn"
           :class="{ active: currentMode === m.value }"
-          :disabled="generating"
+          :disabled="streaming"
         >
           {{ m.label }}
         </button>
       </div>
 
       <div class="summary-content-wrapper">
-        <div v-if="generating" class="re-generating-overlay">
-          <div class="spinner small"></div>
-          <p>Memperbaharui ringkasan...</p>
+        <div v-if="streaming" class="streaming-indicator">
+          <span class="streaming-dot"></span>
+          <span>Sedang menulis...</span>
         </div>
-        <SummaryCard v-if="summaryContent" :content="summaryContent" :class="{ 'blur': generating }" />
+        <SummaryCard v-if="summaryContent" :content="summaryContent" />
+        <div v-else-if="!streaming" class="empty-state">
+          <p>Belum ada ringkasan. Pilih mode di atas untuk memulai.</p>
+        </div>
       </div>
 
       <div class="footer-actions">
         <template v-if="meeting?.status === 'ACTIVE'">
           <div v-if="!confirmingClose" class="primary-action">
-            <button @click="confirmingClose = true" class="btn btn-finish">
+            <button @click="confirmingClose = true" class="btn btn-finish" :disabled="streaming">
               ✅ Selesai & Tutup Sesi
             </button>
           </div>
@@ -90,10 +93,11 @@ const meetingId = route.params.id as string
 
 const meeting = ref<any>(null)
 const loading = ref(true)
-const generating = ref(false)
+const streaming = ref(false)
 const error = ref<string | null>(null)
 const currentMode = ref('STANDARD')
 const confirmingClose = ref(false)
+const summaryContent = ref('')
 
 const isEditingTitle = ref(false)
 const editTitleValue = ref('')
@@ -140,15 +144,6 @@ const modes = [
   { value: 'DETAILED', label: 'Detail' }
 ]
 
-const summaryContent = computed(() => {
-  if (!meeting.value?.summary?.content) return null
-  try {
-    return JSON.parse(meeting.value.summary.content)
-  } catch (e) {
-    return null
-  }
-})
-
 const formatDuration = (seconds: number) => {
   const hours = Math.floor(seconds / 3600)
   const minutes = Math.floor((seconds % 3600) / 60)
@@ -169,6 +164,7 @@ const fetchMeeting = async () => {
     meeting.value = data
     if (data && data.summary) {
       currentMode.value = data.summary.mode
+      summaryContent.value = data.summary.content
     }
   } catch (e) {
     console.error('Failed to fetch meeting:', e)
@@ -177,23 +173,53 @@ const fetchMeeting = async () => {
 }
 
 const generateSummary = async (mode: string) => {
-  generating.value = true
+  streaming.value = true
   error.value = null
   currentMode.value = mode
+  summaryContent.value = ''
   
   try {
-    await $fetch(`/api/meetings/${meetingId}/summarize`, {
-      method: 'POST',
-      body: { mode }
-    })
+    // Use EventSource for SSE streaming
+    const eventSource = new EventSource(`/api/meetings/${meetingId}/summarize-stream?mode=${mode}`)
     
-    // Refresh data to get updated summary
-    await fetchMeeting()
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        
+        if (data.error) {
+          error.value = 'Gagal membuat ringkasan'
+          eventSource.close()
+          streaming.value = false
+          return
+        }
+        
+        if (data.done) {
+          eventSource.close()
+          streaming.value = false
+          // Refresh meeting data to get updated summary from DB
+          fetchMeeting()
+          return
+        }
+        
+        if (data.chunk) {
+          summaryContent.value += data.chunk
+        }
+      } catch (e) {
+        console.error('Failed to parse SSE data:', e)
+      }
+    }
+    
+    eventSource.onerror = (e) => {
+      console.error('SSE Error:', e)
+      error.value = 'Koneksi terputus'
+      eventSource.close()
+      streaming.value = false
+    }
+    
   } catch (e: any) {
     console.error('Failed to generate summary:', e)
     error.value = e.data?.message || e.message || 'Gagal membuat ringkasan'
-  } finally {
-    generating.value = false
+    streaming.value = false
   }
 }
 
@@ -215,11 +241,13 @@ onMounted(async () => {
     
     if (meeting.value && !meeting.value.summary) {
       // Generate initial summary if none exists
+      loading.value = false
       await generateSummary('STANDARD')
+    } else {
+      loading.value = false
     }
   } catch (e: any) {
     error.value = e.message || 'Gagal memuat data rapat'
-  } finally {
     loading.value = false
   }
 })
@@ -303,34 +331,34 @@ onMounted(async () => {
   min-height: 200px;
 }
 
-.re-generating-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+.streaming-indicator {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(2px);
-  z-index: 10;
+  gap: 0.5rem;
+  color: var(--primary);
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.streaming-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--primary);
+  border-radius: 50%;
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
   border-radius: var(--radius);
-  color: white;
-  gap: 1rem;
-}
-
-.spinner.small {
-  width: 24px;
-  height: 24px;
-  border-width: 2px;
-}
-
-.blur {
-  filter: blur(4px);
-  transition: filter 0.3s ease;
-  pointer-events: none;
 }
 
 .toolbar {
@@ -347,12 +375,23 @@ onMounted(async () => {
   padding: 0.5rem 1rem;
   border-radius: 20px;
   font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 .mode-btn.active {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
+}
+
+.mode-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .footer-actions {
@@ -380,7 +419,7 @@ onMounted(async () => {
 }
 
 .btn-finish {
-  background: #10b981; /* Green */
+  background: #10b981;
 }
 .btn-finish:hover {
   background: #059669;
