@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Meeting {
+  id              String   @id @default(uuid())
+  title           String?
+  startedAt       DateTime @default(now())
+  endedAt         DateTime?
+  durationSeconds Int?
+  audioSaved      Boolean  @default(false)
+  audioPath       String?
+  transcript      String? // Temporary storage for AI processing
+  status          String   @default("ACTIVE") // ACTIVE, COMPLETED
+
+  summary         Summary?
+}
+
+model Summary {
+  id        String   @id @default(uuid())
+  meetingId String   @unique
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+  mode      String // STANDARD, IMPORTANT, DETAILED
+  content   String // Stored as JSON string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
