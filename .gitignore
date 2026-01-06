@@ -27,5 +27,8 @@ logs
 
 /public/audio
 
-# SQLite
-dev.db
+# SQLite & Databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal

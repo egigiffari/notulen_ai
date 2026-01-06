@@ -1,75 +1,62 @@
-# Nuxt Minimal Starter
+# Notulen AI
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+Notulen AI adalah aplikasi web berbasis AI yang dirancang untuk membantu pengguna merekam rapat, menghasilkan ringkasan cerdas secara otomatis, dan mengelola riwayat rapat dengan antarmuka yang modern dan ramah pengguna.
+
+Aplikasi ini menggunakan **Nuxt 3**, **Prisma**, **OpenAI Whisper (STT)**, dan **GPT-4o-mini** untuk memberikan pengalaman notulensi yang mulus dan efisien.
+
+## Fitur Utama
+
+- **Rekam & Rangkum**: Rekam audio rapat dan dapatkan ringkasan cerdas (Agenda, Keputusan, Action Items) dalam hitungan detik.
+- **Mode Ringkasan**: Pilih antara mode *Standar*, *Poin Penting*, atau *Detail* sesuai kebutuhan.
+- **Manajemen Rapat**: Edit judul rapat langsung di halaman summary dan hapus riwayat rapat beserta file audionya.
+- **Modern UI/UX**: Antarmuka minimalis dengan audio visualizer yang artistik dan navigasi yang intuitif.
+
+---
+
+## Dokumentasi Lengkap
+
+Untuk informasi lebih mendalam mengenai arsitektur, flow pengguna, kontrak API, dan lainnya, silakan merujuk ke direktori [docs](./docs):
+
+- **[Overview](./docs/01-overview-notulen-ai.md)**: Gambaran umum produk.
+- **[Architecture](./docs/04-architecture.md)**: Detail teknis dan arsitektur sistem.
+- **[API Contract](./docs/06-api-contract.md)**: Dokumentasi API endpoint.
+- **[Color Palette](./docs/10-color-palette.md)**: Panduan desain dan warna.
+- *Dan dokumen lainnya di dalam folder tersebut.*
+
+---
 
 ## Setup
 
-Make sure to install dependencies:
+Pastikan Anda memiliki file `.env` yang berisi `OPENAI_API_KEY` dan `DATABASE_URL`.
+
+Install dependencies:
 
 ```bash
 # npm
 npm install
-
-# pnpm
-pnpm install
-
-# yarn
-yarn install
-
-# bun
-bun install
 ```
 
 ## Development Server
 
-Start the development server on `http://localhost:3000`:
+Jalankan server pengembangan di `http://localhost:3000`:
 
 ```bash
 # npm
 npm run dev
-
-# pnpm
-pnpm dev
-
-# yarn
-yarn dev
-
-# bun
-bun run dev
 ```
 
 ## Production
 
-Build the application for production:
+Build aplikasi untuk produksi:
 
 ```bash
 # npm
 npm run build
-
-# pnpm
-pnpm build
-
-# yarn
-yarn build
-
-# bun
-bun run build
 ```
 
-Locally preview production build:
+Pratinjau hasil build produksi secara lokal:
 
 ```bash
 # npm
 npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
 ```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
