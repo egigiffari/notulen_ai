@@ -29,7 +29,7 @@
             Lihat Ringkasan
           </NuxtLink>
           <button @click="confirmDelete(meeting.id)" class="btn btn-sm btn-outline-danger">
-            🗑️ Hapus
+            Hapus
           </button>
         </div>
       </div>

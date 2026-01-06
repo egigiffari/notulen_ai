@@ -1,25 +1,31 @@
 <template>
-  <div class="container record-container">
+  <div class="record-container">
     <header>
       <h1>Rapat Sedang Berlangsung</h1>
-      <div class="timer">{{ formatTime(duration) }}</div>
     </header>
     
+    <div class="timer-section">
+      <div class="timer">{{ formatTime(duration) }}</div>
+      <p v-if="isRecording" class="status">🔴 Merekam...</p>
+    </div>
+
     <div class="visualizer-wrapper">
       <AudioVisualizer :stream="stream" />
     </div>
 
     <div class="controls">
-      <button v-if="isRecording" @click="stopRecording" class="btn btn-danger">
-        ⏹️ Selesai Rekam
+      <button v-if="isRecording" @click="stopRecording" class="btn-stop">
+        <span class="icon">⏹️</span>
+        <span>Selesai Rekam</span>
       </button>
       <div v-else class="post-recording">
         <div class="options">
-          <label>
-            <input type="checkbox" v-model="saveAudio"> Simpan Audio
+          <label class="checkbox-label">
+            <input type="checkbox" v-model="saveAudio">
+            <span>Simpan Audio</span>
           </label>
         </div>
-        <button @click="processRecording" class="btn btn-primary" :disabled="processing">
+        <button @click="processRecording" class="btn-primary-lg" :disabled="processing">
           {{ processing ? 'Memproses...' : '📝 Buat Ringkasan' }}
         </button>
       </div>
@@ -53,17 +59,15 @@ onMounted(async () => {
     }
     
     mediaRecorder.value.onstop = () => {
-      audioBlob.value = new Blob(audioChunks.value, { type: 'audio/webm' }) // Use webm for simplicity
+      audioBlob.value = new Blob(audioChunks.value, { type: 'audio/webm' })
     }
     
     mediaRecorder.value.start()
     startTimer()
   } catch (err) {
     console.warn('Microphone access denied or error: ' + err + '. Switch to MOCK mode.')
-    // Mock mode
     isRecording.value = true
     startTimer()
-    // Create a dummy audio blob (1 second of silence or just empty)
     audioBlob.value = new Blob(['mock-audio-data'], { type: 'audio/webm' })
   }
 })
@@ -97,21 +101,19 @@ const processRecording = async () => {
   processing.value = true
   
   const formData = new FormData()
-  // Append file, using webm extension
   formData.append('audio', audioBlob.value, 'recording.webm')
   formData.append('saveAudio', saveAudio.value.toString())
   formData.append('duration', duration.value.toString())
   
   try {
-    const { data } = await useFetch(`/api/meetings/${meetingId}/transcribe`, {
+    await $fetch(`/api/meetings/${meetingId}/transcribe`, {
       method: 'POST',
       body: formData
     })
     
-    // Once transcribed, go to summary page
     router.push(`/meeting/${meetingId}/summary`)
   } catch (error) {
-    alert('Failed to process audio')
+    alert('Gagal memproses audio')
     console.error(error)
     processing.value = false
   }
@@ -130,35 +132,111 @@ const formatTime = (seconds: number) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 80vh;
+  min-height: 100vh;
   gap: 2rem;
   text-align: center;
+  padding: 2rem;
+}
+
+.timer-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .timer {
-  font-size: 3rem;
+  font-size: 4rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  margin-top: 1rem;
+  color: white;
+}
+
+.status {
+  color: #ef4444;
+  font-size: 1rem;
+  animation: blink 1.5s infinite;
+}
+
+@keyframes blink {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0.5; }
 }
 
 .visualizer-wrapper {
   width: 100%;
-  max-width: 600px;
+  max-width: 500px;
 }
 
-.btn-danger {
+.controls {
+  margin-top: 1rem;
+}
+
+.btn-stop {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
   background: #ef4444;
   color: white;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
-.btn-danger:hover {
+
+.btn-stop:hover {
   background: #dc2626;
+  transform: translateY(-2px);
+}
+
+.btn-primary-lg {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, #06b6d4, #0891b2);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-primary-lg:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -10px rgba(6, 182, 212, 0.5);
+}
+
+.btn-primary-lg:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .post-recording {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.5rem;
   align-items: center;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #06b6d4;
 }
 </style>
