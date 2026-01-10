@@ -1,340 +1,267 @@
 # 04_SRD.md
 # System Requirements Document (SRD)
-## Notulen AI v2.2 — FINAL
+## Notulen AI v2.3 — FINAL & LOCKED
 
 ---
 
-## 1. Purpose of This Document
-
-Dokumen ini mendefinisikan **kebutuhan sistem secara teknis dan deterministik** untuk aplikasi **Notulen AI**.
-
-SRD ini berfungsi sebagai:
-- Single Source of Truth (SSOT)
-- Kontrak antara Product, Engineering, dan AI Agent
-- Acuan implementasi backend, frontend, dan AI workflow
-
----
-
-## 2. System Overview
-
-### 2.1 System Objective
-Membangun sistem notulen rapat berbasis AI yang:
-- memproses audio berdurasi panjang
-- bekerja secara asinkron
-- memberikan feedback progres secara realtime
-- tetap stabil saat terjadi error AI, quota limit, refresh, dan disconnect
+### Document Metadata
+- Product Name: Notulen AI
+- Document Type: System Requirements Document (SRD)
+- Version: 2.3
+- Status: FINAL & LOCKED
+- Audience: Developers, AI Agents
+- Change Type: Minor Feature Update (Semantic Versioning)
+- Supersedes: SRD v2.2
 
 ---
 
-### 2.2 High-Level Architecture
+## 1. System Overview
 
-[ Browser (Nuxt 3) ]
-│
-│ REST + SSE
-▼
-[ Backend API (Fastify, Node.js LTS) ]
-│
-├─ Summary Job (Async, Independent)
-├─ SSE Hub (Observer-only)
-├─ AI Adapter (Whisper + LLM)
-│
-▼
-[ Database (SQLite → PostgreSQL) ]
+Notulen AI is a web-based application designed to automatically generate structured meeting minutes using AI.  
+The system records or accepts meeting audio, processes speech-to-text, and produces concise, structured summaries suitable for professional documentation and archival.
 
+Primary objectives:
+- Low AI operational cost
+- Deterministic and robust system behavior
+- Clear meeting lifecycle finality
+- Professional, production-grade UX
+- Suitable for long meetings (>30 minutes)
 
 ---
 
-## 3. Architectural Principles (NON-NEGOTIABLE)
+## 2. In Scope
 
-### 3.1 State-Driven System
-- Semua alur sistem dikendalikan oleh **state machine eksplisit**
-- Tidak ada implicit state di frontend
-- Database adalah **single source of truth**
-
----
-
-### 3.2 Job Independence
-- Summary job **HARUS independen dari client**
-- Client disconnect / refresh **TIDAK BOLEH** mempengaruhi job
-- SSE **BUKAN** pengendali job
-
----
-
-### 3.3 Partial vs Final Data
-- Partial summary:
-  - hanya via SSE
-  - tidak disimpan
-- Final summary:
-  - disimpan di DB
-  - diambil via REST
-  - tidak pernah berasal dari SSE
+- Browser-based audio recording (microphone, optional tab audio)
+- Audio file upload
+- Speech-to-text using Whisper
+- AI-based meeting summary generation
+- Three summary modes:
+  - Standard
+  - Important Points
+  - Detailed
+- Server-Sent Events (SSE) for summary progress
+- Meeting history view
+- Rename meeting
+- Delete meeting
+- Limited summary re-generation
+- No authentication
 
 ---
 
-### 3.4 Error Is Expected
-- Error AI, timeout, quota limit adalah kondisi normal
-- Semua error harus:
-  - terklasifikasi
-  - recoverable
-  - tidak merusak state
+## 3. Out of Scope
+
+- Zoom / Google Meet bots
+- Persistent audio storage
+- Persistent raw transcript storage
+- Desktop application
+- Multi-user collaboration
+- Token-level streaming
+- Automatic system-wide audio capture
 
 ---
 
-## 4. State Machine Specification
+## 4. System Architecture
 
-### 4.1 State Definitions
+### 4.1 High-Level Architecture
 
+Browser (Nuxt 4)  
+→ REST API & SSE  
+Backend API (Fastify, Node.js LTS)  
+→ AI Services  
+- Whisper (Speech-to-Text)  
+- GPT-4o-mini (Summary)  
+→ Database (SQLite via Prisma)
+
+---
+
+## 5. Technology Stack
+
+### Frontend
+- Nuxt 4
+- TypeScript
+- Web Audio API
+- MediaRecorder API
+- Server-Sent Events (SSE)
+
+### Backend
+- Node.js (LTS)
+- Fastify
+- TypeScript
+- Prisma ORM
+
+### Database
+- SQLite (default)
+- PostgreSQL compatible
+
+### AI Services
+- OpenAI Whisper (STT)
+- GPT-4o-mini (Summary)
+
+---
+
+## 6. Meeting State Machine
+
+```
 CREATED
+  ↓
 RECORDING
+  ↓
 PROCESSING
-SUMMARY_READY
-COMPLETED
+  ↓
+SUMMARY_READY (Final State)
+```
 
-
----
-
-### 4.2 Allowed Transitions (FINAL)
-
-| From | To | Trigger |
-|---|---|---|
-| CREATED | RECORDING | Start recording |
-| RECORDING | PROCESSING | Close recording |
-| PROCESSING | SUMMARY_READY | Summary completed |
-| SUMMARY_READY | COMPLETED | Close session |
-
-❌ Tidak ada transisi lain yang valid  
-❌ Tidak ada state tambahan (PAUSED, ERROR, STREAMING, dll)
+Rules:
+- No additional states are allowed
+- No state skipping is allowed
+- SSE connections are allowed ONLY during PROCESSING
 
 ---
 
-### 4.3 State Invariants
+## 7. Audio Processing
 
-#### RECORDING
-- Audio chunk boleh dikirim
-- Summary job **BELUM BOLEH** berjalan
-
-#### PROCESSING
-- Audio upload **DITOLAK**
-- Summary job **HARUS sudah berjalan**
-- SSE **BOLEH** aktif
-
-#### SUMMARY_READY
-- Summary final **WAJIB ada**
-- SSE **HARUS ditutup**
-
-#### COMPLETED
-- Read-only
-- Tidak ada mutasi data utama
+- Audio may be recorded via browser or uploaded as a file
+- Audio is processed in chunks
+- Audio files are NOT stored permanently
+- Audio is used only for speech-to-text processing
 
 ---
 
-## 5. Data Requirements
+## 8. AI Summary Processing
 
-### 5.1 Persistence Rules
-- Audio file: ❌ tidak wajib disimpan
-- Transcript mentah: ❌ tidak disimpan
-- Partial summary: ❌ tidak disimpan
-- Final summary: ✅ disimpan
+### 8.1 Summary Modes
+- STANDARD: Balanced summary
+- IMPORTANT: Key decisions and outcomes only
+- DETAILED: Full meeting minutes
 
----
 
-### 5.2 Core Entities
 
-#### Meeting
-- Merepresentasikan satu sesi rapat
-- Menyimpan state, progress, metadata
+## 9. Summary Re-Generation Policy (v2.3)
 
-#### Summary
-- Satu-ke-satu dengan Meeting
-- Hanya berisi hasil final
+- Re-generation is allowed ONLY when:
+  - meeting.state == SUMMARY_READY
+- Re-generation is NOT allowed when:
+  - meeting.state == PROCESSING
+- Only ONE summary record exists per meeting
+- Re-generation MUST overwrite the previous summary
+- No summary version history is stored
 
----
-
-## 6. Summary Job Requirements
-
-### 6.1 Job Lifecycle
-1. Dipicu saat recording ditutup
-2. Berjalan async
-3. Tidak bergantung SSE
-4. Menyimpan hasil final
-5. Mengubah state ke SUMMARY_READY
+Backend MUST reject invalid attempts with:
+- error.code = SESSION_ALREADY_CLOSED
+- or error.code = INVALID_MEETING_STATE
 
 ---
 
-### 6.2 Job Constraints
-- Hanya **1 job aktif per meeting**
-- Job **HARUS idempotent**
-- Job **HARUS bisa dihentikan aman**
+## 10. Server-Sent Events (SSE)
+
+- SSE is used ONLY for:
+  - Progress updates
+  - Temporary section-level summaries
+- SSE MUST NOT:
+  - Control job execution
+  - Affect meeting state
+  - Persist partial data
+- SSE disconnect MUST NOT stop summary processing
+- Final summary MUST always be fetched via REST API
 
 ---
 
-## 7. Server-Sent Events (SSE)
+## 11. Meeting Metadata Management (v2.3)
 
-### 7.1 Purpose
-SSE digunakan **hanya untuk UX feedback**, bukan data final.
+### 11.1 Rename Meeting
 
----
-
-### 7.2 SSE Rules (STRICT)
-
-- SSE:
-  - read-only
-  - observer-only
-- SSE:
-  - tidak memicu job
-  - tidak menyimpan data
-- SSE:
-  - boleh putus kapan saja
-  - tidak mempengaruhi state
+- Meeting title MAY be updated when state is:
+  - CREATED
+  - SUMMARY_READY
+  - COMPLETED
+- Meeting title MUST NOT be updated when state is:
+  - RECORDING
+  - PROCESSING
+- Renaming a meeting MUST NOT:
+  - Trigger AI processing
+  - Modify summary content
+  - Change meeting state
 
 ---
 
-### 7.3 SSE Lifecycle
+## 12. Meeting Deletion Policy (v2.3)
 
-| Kondisi | Perilaku |
-|---|---|
-| State ≠ PROCESSING | SSE ditolak |
-| PROCESSING | SSE boleh aktif |
-| done / error | SSE ditutup |
-| timeout | SSE ditutup |
-
----
-
-## 8. AI Integration Requirements
-
-### 8.1 Speech-to-Text
-- Menggunakan Whisper
-- Dipanggil per chunk
-- Harus memiliki timeout keras
+- Meetings MAY be deleted when state is:
+  - CREATED
+  - SUMMARY_READY
+  - COMPLETED
+- Meetings MUST NOT be deleted when state is:
+  - RECORDING
+  - PROCESSING
+- Deletion is a HARD DELETE:
+  - Meeting record is removed
+  - Associated summary is removed (cascade)
+  - Operation is irreversible
 
 ---
 
-### 8.2 Summary LLM
-- Menggunakan prompt terstruktur
-- Tidak streaming token mentah
-- Output harus terstruktur
+## 13. API Contract
+
+### 13.1 Success Response
+```json
+{
+  "success": true,
+  "data": {}
+}
+```
+
+### 13.2 Error Response
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "requestId": "req_xxx"
+  }
+}
+```
+
+### 13.3 Error Codes
+- MEETING_NOT_FOUND
+- INVALID_MEETING_STATE
+- SESSION_ALREADY_CLOSED
+- FAILED_THIRD_PARTY
+- INTERNAL_ERROR
 
 ---
 
-## 9. AI Quota & Failure Handling
+## 14. UX Guarantees (v2.3)
 
-### 9.1 AI Quota Exceeded
-
-Jika quota habis:
-- Summary job dihentikan aman
-- State **TETAP PROCESSING**
-- Partial data dibuang
-- SSE emit:
-AI_QUOTA_EXCEEDED
-
+- Temporary summary content MUST be clearly labeled
+- Final summary MUST be visually distinct
+- Summary modification controls MUST be hidden or disabled after completion
+- Users MUST be explicitly informed when a session is finalized
 
 ---
 
-### 9.2 Resume Strategy (FINAL)
+## 15. Non-Functional Requirements
 
-- Resume **MANUAL**
-- Endpoint:
-POST /meetings/:id/resume-summary
-- Resume:
-- idempotent
-- single-flight
-- masuk antrean jika penuh
+### Performance
+- Support 1000–3000 concurrent clients
+- Asynchronous background jobs
+- Throttled SSE updates
 
-❌ Tidak ada auto-resume
+### Reliability
+- Stateless backend
+- Idempotent APIs
+- Strict state validation
 
----
-
-## 10. Error Handling System
-
-### 10.1 Error Model
-- Backend mengirim:
-- error code
-- requestId
-- Backend **TIDAK** mengirim message user-facing
+### Security
+- Explicit user permissions for audio
+- No system audio sniffing
+- No sensitive data persistence
 
 ---
 
-### 10.2 Error Principles
-- Error ≠ crash
-- Error ≠ state corruption
-- Semua error harus eksplisit
+## 16. Document Status
 
----
-
-## 11. Edge-Case Hardening (MANDATORY)
-
-### 11.1 Duplicate Resume
-- Resume request harus single-flight
-- Resume ganda ditolak
-
-### 11.2 Starvation Job
-- Resume masuk queue
-- Concurrency dibatasi
-
-### 11.3 SSE Leak
-- SSE harus ditutup saat:
-- done
-- error
-- client disconnect
-- hard timeout
-
-### 11.4 Final Summary Integrity
-- Final summary **HARUS via REST**
-- SSE **DILARANG** membawa final data
-
-### 11.5 Processing TTL
-- PROCESSING tidak boleh selamanya
-- TTL wajib
-- User diberi opsi lanjut / batalkan
-
----
-
-## 12. Non-Functional Requirements
-
-### 12.1 Reliability
-- Aman terhadap refresh
-- Aman terhadap multi-tab
-- Aman terhadap backend restart
-
-### 12.2 Performance
-- Progress feedback < 5 detik
-- SSE throttle wajib
-
-### 12.3 Scalability
-- 1000–3000 client
-- Summary job concurrency dibatasi
-- Scale by limiting
-
----
-
-## 13. Explicit Non-Requirements
-
-Sistem ini **TIDAK** mencakup:
-- Login & authentication
-- Realtime transcription
-- Transcript viewer
-- Collaborative editing
-- Exactly-once processing
-
----
-
-## 14. Definition of System Readiness
-
-Sistem dianggap **siap** jika:
-- State machine enforced
-- SSE optional & safe
-- Resume idempotent
-- TTL PROCESSING aktif
-- Tidak ada summary parsial tersimpan
-
----
-
-## 15. Document Status
-
-- **Document:** SRD
-- **Version:** v2.2
-- **Status:** FINAL & LOCKED
-- **Next Revision:** v3 (user, team, enterprise)
+This document is FINAL & LOCKED.  
+Any modification requires a new version increment.
 
 ---
 

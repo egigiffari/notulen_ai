@@ -11,8 +11,7 @@ const ALLOWED_TRANSITIONS: Record<MeetingState, MeetingState[]> = {
     CREATED: ['RECORDING'],
     RECORDING: ['PROCESSING'],
     PROCESSING: ['SUMMARY_READY'],
-    SUMMARY_READY: ['COMPLETED'],
-    COMPLETED: []
+    SUMMARY_READY: ['PROCESSING'] // Allow loop back for regeneration
 }
 
 /**
@@ -61,10 +60,7 @@ export const StateInvariants = {
     SUMMARY_READY: {
         // summary must exist
         canViewSummary: true,
-        sseMusBeClosed: true
-    },
-    COMPLETED: {
-        // read-only
-        isReadOnly: true
+        sseMusBeClosed: true,
+        canResumeSummary: true
     }
 }

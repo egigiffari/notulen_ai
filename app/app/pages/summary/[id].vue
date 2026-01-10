@@ -20,7 +20,8 @@
       </div>
 
       <template v-else>
-        <div v-if="meeting.state !== 'COMPLETED'" class="mode-selector">
+        <!-- Mode selector - selalu tampil untuk regenerate -->
+        <div class="mode-selector">
           <button 
             v-for="mode in modes" 
             :key="mode.value"
@@ -42,13 +43,8 @@
         </div>
 
         <div class="actions">
-          <template v-if="meeting.state === 'SUMMARY_READY'">
-            <button @click="completeMeeting" class="btn btn-success btn-lg" :disabled="completing">
-              ✅ Selesai & Tutup Sesi
-            </button>
-          </template>
-          <NuxtLink v-else to="/history" class="btn">
-            Kembali ke Riwayat
+          <NuxtLink to="/history" class="btn">
+            ← Kembali ke Riwayat
           </NuxtLink>
         </div>
       </template>
@@ -73,7 +69,6 @@ const meeting = ref<any>(null)
 const summary = ref<any>(null)
 const loading = ref(true)
 const regenerating = ref(false)
-const completing = ref(false)
 const currentMode = ref('STANDARD')
 
 const modes = [
@@ -168,19 +163,6 @@ const regenerate = async (mode: string) => {
     console.error('Failed to regenerate:', e)
     alert('Gagal memperbaharui ringkasan')
     regenerating.value = false
-  }
-}
-
-const completeMeeting = async () => {
-  completing.value = true
-  try {
-    await apiFetch(`/api/meetings/${meetingId}/complete`, { method: 'POST' })
-    router.push('/history')
-  } catch (e) {
-    console.error('Failed to complete:', e)
-    alert('Gagal menutup sesi')
-  } finally {
-    completing.value = false
   }
 }
 
@@ -293,6 +275,20 @@ header {
 
 .summary-content :deep(strong) {
   color: var(--primary-light);
+}
+
+.locked-notice {
+  text-align: center;
+  padding: 0.75rem 1.5rem;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  border-radius: var(--radius);
+  color: #fbbf24;
+  margin-bottom: 1.5rem;
+}
+
+.locked-notice span {
+  margin-right: 0.5rem;
 }
 
 .actions {

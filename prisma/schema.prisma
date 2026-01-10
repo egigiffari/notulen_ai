@@ -13,7 +13,6 @@ enum MeetingState {
   RECORDING
   PROCESSING
   SUMMARY_READY
-  COMPLETED
 }
 
 enum SummaryMode {

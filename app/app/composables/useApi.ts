@@ -1,26 +1,28 @@
-/**
- * Composable for API calls to backend
- * Uses runtime config for API base URL
- */
+import axios from 'axios'
+
 export function useApi() {
     const config = useRuntimeConfig()
     const apiBase = config.public.apiBase
 
+    // Create axios instance
+    const client = axios.create({
+        baseURL: apiBase,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        // Mimic fetch behavior: don't throw on error status codes
+        validateStatus: () => true
+    })
+
     const apiFetch = async <T = any>(
         endpoint: string,
-        options: RequestInit = {}
+        options: any = {}
     ): Promise<T> => {
-        const url = `${apiBase}${endpoint}`
-
-        const response = await fetch(url, {
-            ...options,
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers
-            }
+        const response = await client.request<T>({
+            url: endpoint,
+            ...options
         })
-
-        return response.json()
+        return response.data
     }
 
     return { apiFetch, apiBase }

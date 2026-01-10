@@ -19,6 +19,10 @@ interface ResumeSummaryBody {
     mode?: 'STANDARD' | 'IMPORTANT' | 'DETAILED'
 }
 
+interface RenameMeetingBody {
+    title: string
+}
+
 export async function meetingRoutes(fastify: FastifyInstance) {
 
     // POST /api/meetings - Create meeting & start recording
@@ -61,6 +65,60 @@ export async function meetingRoutes(fastify: FastifyInstance) {
         return reply.send({
             success: true,
             data: meetings
+        })
+    })
+
+    // PATCH /api/meetings/:id - Rename meeting
+    fastify.patch('/meetings/:id', async (request: FastifyRequest<{ Params: { id: string }, Body: RenameMeetingBody }>, reply) => {
+        const { id } = request.params
+        const { title } = request.body || {}
+
+        if (!title || typeof title !== 'string') {
+            throw new AppError('INVALID_REQUEST')
+        }
+
+        const meeting = await prisma.meeting.findUnique({ where: { id } })
+        if (!meeting) throw new AppError('MEETING_NOT_FOUND')
+
+        // Rename allowed: CREATED, SUMMARY_READY, COMPLETED
+        // Rename blocked: RECORDING, PROCESSING
+        if (['RECORDING', 'PROCESSING'].includes(meeting.state)) {
+            throw new AppError('INVALID_MEETING_STATE')
+        }
+
+        const updated = await prisma.meeting.update({
+            where: { id },
+            data: { title: title.trim() }
+        })
+
+        return reply.send({
+            success: true,
+            data: {
+                meetingId: updated.id,
+                title: updated.title
+            }
+        })
+    })
+
+    // DELETE /api/meetings/:id - Hard delete meeting
+    fastify.delete('/meetings/:id', async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        const { id } = request.params
+
+        const meeting = await prisma.meeting.findUnique({ where: { id } })
+        if (!meeting) throw new AppError('MEETING_NOT_FOUND')
+
+        // Delete allowed: CREATED, SUMMARY_READY, COMPLETED
+        // Delete blocked: RECORDING, PROCESSING
+        if (['RECORDING', 'PROCESSING'].includes(meeting.state)) {
+            throw new AppError('INVALID_MEETING_STATE')
+        }
+
+        // Cascade delete is handled by Prisma schema
+        await prisma.meeting.delete({ where: { id } })
+
+        return reply.send({
+            success: true,
+            data: { deleted: true }
         })
     })
 
@@ -201,8 +259,8 @@ export async function meetingRoutes(fastify: FastifyInstance) {
 
         if (!meeting) throw new AppError('MEETING_NOT_FOUND')
 
-        // Only allow in SUMMARY_READY or COMPLETED
-        assertState(meeting.state, ['SUMMARY_READY', 'COMPLETED'])
+        // Only allow in SUMMARY_READY
+        assertState(meeting.state, ['SUMMARY_READY'])
 
         if (!meeting.summary) {
             throw new AppError('INVALID_MEETING_STATE')
@@ -245,30 +303,6 @@ export async function meetingRoutes(fastify: FastifyInstance) {
                 meetingId: id,
                 queued: true,
                 mode
-            }
-        })
-    })
-
-    // POST /api/meetings/:id/complete - Mark session as completed
-    fastify.post('/meetings/:id/complete', async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
-        const { id } = request.params
-
-        const meeting = await prisma.meeting.findUnique({ where: { id } })
-        if (!meeting) throw new AppError('MEETING_NOT_FOUND')
-
-        // Validate transition: SUMMARY_READY → COMPLETED
-        assertTransition(meeting.state, 'COMPLETED')
-
-        const updated = await prisma.meeting.update({
-            where: { id },
-            data: { state: 'COMPLETED' }
-        })
-
-        return reply.send({
-            success: true,
-            data: {
-                meetingId: updated.id,
-                state: updated.state
             }
         })
     })
