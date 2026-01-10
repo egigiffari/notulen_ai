@@ -18,6 +18,22 @@ export function useApi() {
         endpoint: string,
         options: any = {}
     ): Promise<T> => {
+        // AXIOS ADAPTER: Handle fetch-style 'body' for backward compatibility
+        if (options.body && !options.data) {
+            try {
+                // If body is string (JSON), parse it for axios 'data'
+                if (typeof options.body === 'string') {
+                    options.data = JSON.parse(options.body)
+                } else {
+                    options.data = options.body
+                }
+                delete options.body
+            } catch (e) {
+                // If parse fails or strictly not JSON, pass as is (rare case)
+                options.data = options.body
+            }
+        }
+
         const response = await client.request<T>({
             url: endpoint,
             ...options

@@ -173,7 +173,7 @@ const saveRename = async (id: string) => {
   try {
     const res = await apiFetch(`/api/meetings/${id}`, {
       method: 'PATCH',
-      body: JSON.stringify({ title: editTitle.value.trim() })
+      data: { title: editTitle.value.trim() }
     })
     
     if (res.success) {
