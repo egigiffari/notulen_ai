@@ -23,12 +23,15 @@ logs
 .env.*
 !.env.example
 
-/app/generated/prisma
-
-/public/audio
-
 # SQLite & Databases
 *.db
 *.db-journal
 *.db-shm
 *.db-wal
+
+# Generated
+generated/
+
+# Sample Audio
+app/public/samples/*
+!app/public/samples/.gitkeep
