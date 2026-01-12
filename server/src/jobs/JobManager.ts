@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js'
-import { SummaryMode } from '../../generated/prisma/index.js'
+import { SummaryMode } from '@prisma/client'
 import { transcribeAudio, generateSummary } from '../services/AIAdapter.js'
 
 interface SSEClient {

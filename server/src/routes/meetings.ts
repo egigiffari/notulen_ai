@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import { prisma } from '../lib/prisma.js'
 import { AppError } from '../errors/AppError.js'
 import { assertState, assertTransition } from '../guards/StateGuard.js'
-import { MeetingState, SummaryMode } from '../../generated/prisma/index.js'
+import { MeetingState, SummaryMode } from '@prisma/client'
 import { startSummaryJob, registerSSEClient, unregisterSSEClient, isJobRunning, storeAudioBuffer } from '../jobs/JobManager.js'
 
 interface CreateMeetingBody {

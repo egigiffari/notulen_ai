@@ -1,5 +1,5 @@
 import OpenAI from 'openai'
-import { SummaryMode } from '../../generated/prisma/index.js'
+import { SummaryMode } from '@prisma/client'
 
 // Initialize OpenAI client
 const openai = new OpenAI({

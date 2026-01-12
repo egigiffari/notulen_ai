@@ -5,8 +5,8 @@
     "type": "module",
     "scripts": {
         "dev": "tsx watch src/index.ts",
-        "build": "tsc",
-        "start": "node dist/index.js"
+        "build": "rm -rf ../dist/backend && tsc && echo '{\"type\":\"module\"}' > ../dist/backend/package.json",
+        "start": "node ../dist/backend/index.js"
     },
     "dependencies": {
         "@fastify/cors": "^10.0.1",

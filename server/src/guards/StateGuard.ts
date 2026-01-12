@@ -1,4 +1,4 @@
-import { MeetingState } from '../../generated/prisma/index.js'
+import { MeetingState } from '@prisma/client'
 import { AppError } from '../errors/AppError.js'
 
 /**
